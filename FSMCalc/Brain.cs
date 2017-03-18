@@ -6,13 +6,24 @@ using System.Threading.Tasks;
 
 namespace FSMCalc
 {
-
-    class Brain
+    public enum CalcStates
     {
-        public string currentState = "";
+        Zero,
+        AccumulateDigits,
+        AccumulateDigitsWithDecimal,
+        ComputePending,
+        Compute
+    }
+
+    public delegate void PrintDelegate(string message);
+
+    public class Brain
+    {
+        public PrintDelegate invoker;
+        public CalcStates currentState = CalcStates.Zero;
 
         public string numbers = "";
-        public char op = '';
+        public char op = '.';
         public string result = "";
 
         public char[] zero = { '0'};
@@ -22,29 +33,39 @@ namespace FSMCalc
         public char[] digits = {'0','1','2','3','4','5','6','7','8','9' };
         public char[] nonzerodigits = {'1','2','3','4','5','6','7','8','9' };
 
-
-
         public void Processor(char item)
         {
-            if(currentState == "Zero")
+            switch (currentState)
             {
-                Zero(item, false);
-            }
-            else if(currentState == "AccumulateDigits")
-            {
-                AccumulateDigits(item, false);
+                case CalcStates.Zero:
+                    Zero(item, false);
+                    break;
+                case CalcStates.AccumulateDigits:
+                    AccumulateDigits(item, false);
+                    break;
+                case CalcStates.AccumulateDigitsWithDecimal:
+                    AccumulateDigitsWithDecimal(item, false);
+                    break;
+                case CalcStates.ComputePending:
+                    ComputePending(item, false);
+                    break;
+                case CalcStates.Compute:
+                    Compute(item, false);
+                    break;
+                default:
+                    break;
             }
         }
 
         public void Zero(char item, bool isInput)
         {
-            numbers = "";
-            result = "";
-            op = '.';
-
             if (isInput)
             {
-                currentState = "Zero";
+                numbers = "0";
+                result = "0";
+                op = '.';
+                invoker.Invoke(numbers);
+                currentState = CalcStates.Zero;
             }
             else
             {
@@ -55,6 +76,10 @@ namespace FSMCalc
                 {
                     AccumulateDigitsWithDecimal(item, true);
                 }
+                else if (zero.Contains(item))
+                {
+                    Zero(item, true);
+                }
             }
         }
 
@@ -62,8 +87,9 @@ namespace FSMCalc
         {
             if (isInput)
             {
-                numbers = numbers + item;
-                currentState = "AccumulateDigits";
+                result = result + item;
+                invoker.Invoke(result);
+                currentState = CalcStates.AccumulateDigits;
             }
             else
             {
@@ -80,6 +106,10 @@ namespace FSMCalc
                 {
                     Compute(item, true);
                 }
+                else if (operations.Contains(item))
+                {
+                    ComputePending(item, true);
+                }
             }
         }
 
@@ -88,11 +118,12 @@ namespace FSMCalc
 
             if (isInput)
             {
-                currentState = "AccumulateDigitsWithDecimal";
-                if (!numbers.Contains(item))
+                currentState = CalcStates.AccumulateDigitsWithDecimal;
+                if (!result.Contains(item))
                 {
-                    numbers = numbers + item;
+                    result = result + item;
                 }
+                invoker.Invoke(result);
             }
             else
             {
@@ -103,6 +134,10 @@ namespace FSMCalc
                 {
                     ComputePending(item, true);
                 }
+                else if (equals.Contains(item))
+                {
+                    Compute(item, true);
+                }
             }
         }
 
@@ -110,10 +145,26 @@ namespace FSMCalc
         {
             if (isInput)
             {
-                currentState = "ComputePending";
+                currentState = CalcStates.ComputePending;
                 op = item;
-                result = numbers;
-                numbers = "";
+                if(numbers != "")
+                {
+                    double a1 = double.Parse(numbers);
+                    double a2 = double.Parse(result);
+                    double a3 = 0;
+                    if (op == '+')
+                    {
+                        a3 = a1 + a2;
+                    }
+                    else if (op == '-')
+                    {
+                        a3 = a1 - a2;
+                    }
+                    result = a3.ToString();
+                }
+                numbers = result;
+                invoker.Invoke(result);
+                result = "";
             }
             else
             {
@@ -128,7 +179,7 @@ namespace FSMCalc
         {
             if (isInput)
             {
-                currentState = "Compute";
+                currentState = CalcStates.Compute;
                 double a1 = double.Parse(numbers);
                 double a2 = double.Parse(result);
                 double a3 = 0;
@@ -140,6 +191,7 @@ namespace FSMCalc
                     a3 = a1 - a2;
                 }
                 result = a3.ToString();
+                invoker.Invoke(result);
             }
             else
             {
@@ -149,6 +201,10 @@ namespace FSMCalc
                 }else if (zero.Contains(item))
                 {
                     Zero(item, true);
+                }
+                else if (operations.Contains(item))
+                {
+                    ComputePending(item, true);
                 }
             }
         }
